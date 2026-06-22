@@ -1,0 +1,14 @@
+# General files
+.DS_Store
+.vscode
+
+## Data folder
+data/
+
+## Generated output
+*.pdf
+*.jpeg
+*.jpg
+*.png
+*.eps
+*.svg
