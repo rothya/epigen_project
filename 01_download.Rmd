@@ -1,0 +1,20 @@
+---
+title: "01 Downloading data"
+author: "Yara"
+date: "2026-06-22"
+output: html_document
+---
+
+This code can be run to download the data into the directory 'data'. This data will not be tracked, thus everyone of the group needs to run this code on it's own device.
+
+```{r create-dir}
+dir.create("data")
+```
+
+```{r downlaod}
+options(timeout = 3600)
+
+download.file("https://polybox.ethz.ch/index.php/s/H9sDxbT7qTHsyLg/download", destfile = "data/data.tar", mode = "wb")
+untar("data/data.tar", exdir = "data")
+file.remove("data/data.tar")
+```
