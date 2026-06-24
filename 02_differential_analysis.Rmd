@@ -11,22 +11,18 @@ suppressPackageStartupMessages({
   library(epiwraps)
   library(ggplot2)
   library(sechm) 
+
+  library(GenomicAlignments)
+  library(Rsamtools)
+  library(SummarizedExperiment)
 })
 ```
-#data preparation
+
+# Data preparation
 
 ```{r}
 ATAC_CSV <- read.csv("data/ATAC/SraRunTable_hypoxia_ATAC.csv")
 ATAC_CSV
-
-```
-
-
-# We need to add this tar to 01_downloaded.Rmd
-
-```{r}
-untar("data/GSE300330_RAW.tar", exdir = "data")
-file.remove("data/GSE300330_RAW.tar")
 ```
 
 ```{r}
@@ -40,7 +36,7 @@ samples <- data.frame(
 ```
 
 ```{r}
-peaks <- file.path("./data",
+peaks <- file.path("./data/ATAC_narrowPeak",
   paste0(samples$gsm, "_BV2_cc_",
          ifelse(samples$condition == "hypoxia", "H", "N"),
          "_n", samples$rep, ".narrowPeak.gz"))
@@ -56,34 +52,23 @@ cat("Total consensus peaks:", length(merged_peaks), "\n")
 ```{r}
 bam_files <- file.path("./data/ATAC", paste0(samples$srr, ".bam"))
 names(bam_files) <- samples$srr
-
-
 ```
 
-
-
-#SummarizedExperiment 
+# SummarizedExperiment 
 ```{r}
-#se <- epiwraps::peakCountsFromBAM(
-#  bam_files,
-#  regions = merged_peaks,
-#  paired  = TRUE      
-#)
-#colnames(se) <- samples$srr
-#se$condition <- samples$condition
-#se$rep       <- samples$rep
-
+# se <- epiwraps::peakCountsFromBAM(
+# bam_files,
+# regions = merged_peaks,
+# paired  = TRUE      
+# )
+# colnames(se) <- samples$srr
+# se$condition <- samples$condition
+# se$rep       <- samples$rep
 ```
+
 # The epiwraps::peakCountsFromBAM isn't working, so I'm using an alternative method from Claude
 
-
 ```{r}
-
-library(GenomicAlignments)
-library(Rsamtools)
-library(SummarizedExperiment)
-
-
 bam_list <- BamFileList(bam_files, yieldSize = 2000000)
 
 se <- summarizeOverlaps(
@@ -99,8 +84,12 @@ colnames(se) <- samples$srr
 colData(se)$condition <- samples$condition
 colData(se)$rep <- samples$rep
 ```
-# Standard differential analysis with edgeR and TMM normalization
 
+```{r}
+saveRDS(se, file = "data/peakCounts.rds")
+```
+
+# Standard differential analysis with edgeR and TMM normalization
 ```{r}
 dds <- edgeR::DGEList(
   counts = assay(se),
@@ -122,8 +111,6 @@ dds <- edgeR::estimateDisp(dds)
 
 et  <- exactTest(dds, pair = c("normoxia", "hypoxia"))
 res <- as.data.frame(topTags(et, n = Inf))
-
-
 ```
 
 #results
