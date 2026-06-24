@@ -1,0 +1,148 @@
+---
+title: "02_differential accessibility"
+output: html_document
+date: "2026-06-23"
+---
+```{r}
+suppressPackageStartupMessages({
+  library(GenomicRanges)
+  library(SummarizedExperiment)
+  library(edgeR) 
+  library(epiwraps)
+  library(ggplot2)
+  library(sechm) 
+})
+```
+#data preparation
+
+```{r}
+ATAC_CSV <- read.csv("data/ATAC/SraRunTable_hypoxia_ATAC.csv")
+ATAC_CSV
+
+```
+
+
+# We need to add this tar to 01_downloaded.Rmd
+
+```{r}
+untar("data/GSE300330_RAW.tar", exdir = "data")
+file.remove("data/GSE300330_RAW.tar")
+```
+
+```{r}
+samples <- data.frame(
+  gsm       = c("GSM8574835","GSM8574836","GSM8574833","GSM8574834"),
+  srr       = c("SRR31003493","SRR31003492","SRR31003495","SRR31003494"),
+  condition = c("hypoxia","hypoxia","normoxia","normoxia"),
+  rep       = c(1, 2, 1, 2),
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+peaks <- file.path("./data",
+  paste0(samples$gsm, "_BV2_cc_",
+         ifelse(samples$condition == "hypoxia", "H", "N"),
+         "_n", samples$rep, ".narrowPeak.gz"))
+names(peaks) <- samples$srr
+
+peaks_list <- lapply(peaks, rtracklayer::import)
+
+merged_peaks <- reduce(unlist(GRangesList(peaks_list)))
+cat("Total consensus peaks:", length(merged_peaks), "\n")
+
+```
+
+```{r}
+bam_files <- file.path("./data/ATAC", paste0(samples$srr, ".bam"))
+names(bam_files) <- samples$srr
+
+
+```
+
+
+
+#SummarizedExperiment 
+```{r}
+#se <- epiwraps::peakCountsFromBAM(
+#  bam_files,
+#  regions = merged_peaks,
+#  paired  = TRUE      
+#)
+#colnames(se) <- samples$srr
+#se$condition <- samples$condition
+#se$rep       <- samples$rep
+
+```
+# The epiwraps::peakCountsFromBAM isn't working, so I'm using an alternative method from Claude
+
+
+```{r}
+
+library(GenomicAlignments)
+library(Rsamtools)
+library(SummarizedExperiment)
+
+
+bam_list <- BamFileList(bam_files, yieldSize = 2000000)
+
+se <- summarizeOverlaps(
+  features = merged_peaks,
+  reads = bam_list,
+  mode = "Union",
+  singleEnd = FALSE,
+  ignore.strand = TRUE
+)
+
+colnames(se) <- samples$srr
+
+colData(se)$condition <- samples$condition
+colData(se)$rep <- samples$rep
+```
+# Standard differential analysis with edgeR and TMM normalization
+
+```{r}
+dds <- edgeR::DGEList(
+  counts = assay(se),
+  group  = se$condition
+)
+
+
+dds <- edgeR::calcNormFactors(dds)
+
+
+keep <- edgeR::filterByExpr(dds)
+cat("\nPeaks kept after low-count filter:", sum(keep), "/", nrow(dds), "\n")
+dds <- dds[keep, ]
+
+
+dds <- edgeR::estimateDisp(dds)
+
+
+
+et  <- exactTest(dds, pair = c("normoxia", "hypoxia"))
+res <- as.data.frame(topTags(et, n = Inf))
+
+
+```
+
+#results
+
+```{r}
+dir.create("results_da", showWarnings = FALSE, recursive = TRUE)
+saveRDS(list(
+  res = res,   
+  se  = se     
+), file = file.path("results_da", "part1_results.rds"))
+```
+
+```{r}
+head(res)
+ggplot(res, aes(logFC, -log10(FDR))) + geom_point()
+```
+
+`
+```{r}
+cat("More open in hypoxia: ",  sum(res$FDR < 0.05 & res$logFC >  1, na.rm=TRUE), "\n")
+cat("More open in normoxia:", sum(res$FDR < 0.05 & res$logFC < -1, na.rm=TRUE), "\n")
+```
