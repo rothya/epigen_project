@@ -11,10 +11,20 @@ This code can be run to download the data into the directory 'data'. This data w
 dir.create("data")
 ```
 
-```{r downlaod}
+```{r downlaod-bamfiles}
 options(timeout = 3600)
 
 download.file("https://polybox.ethz.ch/index.php/s/H9sDxbT7qTHsyLg/download", destfile = "data/data.tar", mode = "wb")
 untar("data/data.tar", exdir = "data")
 file.remove("data/data.tar")
+```
+
+We will also download the narrowpeak files from the ... 
+
+```{r download-narrowpeak}
+dir.create("data/ATAC_narrowPeak")
+
+download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE300330&format=file", destfile = "data/ATAC_narrowPeak/GSE300330_RAW.tar", mode = "wb")
+untar("data/ATAC_narrowPeak/GSE300330_RAW.tar", exdir = "data/ATAC_narrowPeak")
+file.remove("data/ATAC_narrowPeak/GSE300330_RAW.tar")
 ```
