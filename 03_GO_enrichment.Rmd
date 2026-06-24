@@ -1,0 +1,135 @@
+---
+title: "03 GO Biological Process Enrichment"
+author: "Julia"
+date: "2026-06-23"
+output: html_document
+---
+```
+# Introduction
+
+Using the differentially accessible regions identified in `02_differential_accessibility.Rmd`,
+we perform GO Biological Process enrichment to answer: **which biological processes
+are more or less active in hypoxic versus normoxic glioma-associated microglia?**
+
+More open chromatin in hypoxia → increased regulatory activity → upregulated process.  
+More open chromatin in normoxia → decreased regulatory activity in hypoxia → downregulated process.
+
+**Requires:** `01_downloading_data.Rmd` and `02_differential_accessibility.Rmd` run first.
+
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({
+  library(GenomicRanges)
+  library(SummarizedExperiment)
+  library(rtracklayer)
+  library(rGREAT)
+  library(ggplot2)
+})
+```
+
+---
+
+# Step 1 — Load results from code 02
+
+```{r load-results}
+saved <- readRDS("results_da/part1_results.rds")
+res <- saved$res    # edgeR topTags data.frame: logFC, FDR, etc.
+se  <- saved$se     # SummarizedExperiment with all tested peaks as rowRanges
+```
+
+---
+
+# Step 2 — Reconstruct peak coordinates
+
+The `se` object from code 02 carries all tested peak coordinates in `rowRanges(se)`.
+This is our background (all accessible chromatin tested) for GREAT.
+
+```{r peak-coords}
+# All tested peaks = proper background for GREAT
+bg_regions <- rowRanges(se)
+cat("Background (all tested peaks):", length(bg_regions), "\n")
+
+# DA results are ordered by FDR; row order matches rowRanges(se) after edgeR filter.
+# Re-attach coordinates to the results table.
+# edgeR keeps the same row order as the input se after filterByExpr,
+# so we match by name if available, otherwise by position.
+res$coord_idx <- match(rownames(res), names(bg_regions))
+
+# Peaks more open in hypoxia (logFC > 1, FDR < 0.05)
+hyp_idx  <- which(!is.na(res$FDR) & res$FDR < 0.05 & res$logFC >  1)
+# Peaks more open in normoxia (logFC < -1, FDR < 0.05)
+norm_idx <- which(!is.na(res$FDR) & res$FDR < 0.05 & res$logFC < -1)
+
+hyp_regions  <- bg_regions[hyp_idx]
+norm_regions <- bg_regions[norm_idx]
+
+cat("More open in hypoxia:",  length(hyp_regions),  "peaks\n")
+cat("More open in normoxia:", length(norm_regions), "peaks\n")
+```
+
+---
+
+# Step 3 — GO enrichment: processes INCREASED in hypoxia
+
+```{r}
+res_hyp <- great(
+  hyp_regions,
+  gene_sets  = "GO:BP",
+  tss_source = "mm10",      # BV2 = mouse
+  background = bg_regions,  # all tested peaks
+  cores      = 2
+)
+bp_hyp_filt <- getEnrichmentTables(res_hyp)
+cat("BP terms (increased in hypoxia):", nrow(bp_hyp_filt), "\n")
+```
+
+# Step 4 — GO enrichment: processes DECREASED in hypoxia
+
+```{r}
+res_norm <- great(
+  norm_regions,
+  gene_sets  = "GO:BP",
+  tss_source = "mm10",
+  background = bg_regions,
+  cores      = 2
+)
+bp_norm_filt <- getEnrichmentTables(res_norm)
+cat("BP terms (decreased in hypoxia):", nrow(bp_norm_filt), "\n")
+```
+
+# Step 5 — Plot (identical style to reference)
+
+```{r}
+# Increased in hypoxia
+ggplot(head(bp_hyp_filt, 15),
+       aes(fold_enrichment,
+           reorder(description, p_adjust),
+           size  = observed_region_hits,
+           color = -log10(p_adjust))) +
+  geom_point() +
+  scale_color_viridis_c() +
+  labs(title = "GO BP — increased in hypoxia", x = "Fold enrichment", y = NULL)
+
+# Decreased in hypoxia
+ggplot(head(bp_norm_filt, 15),
+       aes(fold_enrichment,
+           reorder(description, p_adjust),
+           size  = observed_region_hits,
+           color = -log10(p_adjust))) +
+  geom_point() +
+  scale_color_viridis_c() +
+  labs(title = "GO BP — decreased in hypoxia", x = "Fold enrichment", y = NULL)
+```
+
+# Step 6 — Print results
+```{r}
+cat("\n=== PROCESSES INCREASED IN HYPOXIA ===\n")
+print(head(bp_hyp_filt[, c("description", "observed_region_hits",
+                             "fold_enrichment", "p_adjust")], 20))
+
+cat("\n=== PROCESSES DECREASED IN HYPOXIA ===\n")
+print(head(bp_norm_filt[, c("description", "observed_region_hits",
+                              "fold_enrichment", "p_adjust")], 20))
+```
+
