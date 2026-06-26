@@ -4,7 +4,7 @@ author: "Julia"
 date: "2026-06-23"
 output: html_document
 ---
-```
+
 # Introduction
 
 Using the differentially accessible regions identified in `02_differential_accessibility.Rmd`,
