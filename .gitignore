@@ -12,3 +12,7 @@ data/
 *.png
 *.eps
 *.svg
+
+# R files
+.Rhistory
+.RData
