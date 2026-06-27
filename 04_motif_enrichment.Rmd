@@ -1,11 +1,14 @@
 ---
-title: "02_differential accessibility"
+title: "04 Motif Enrichment Analysis"
+author: "Yara"
 output: html_document
 date: "2026-06-24"
 ---
 
-# Motif accessibility analysis
-To identify motifs that are differentially acessible in between males and females in stressed vs control we do the following:  
+
+In the next step, motif enrichment analysis will be performed to identify DNA motifs that are differentially accessible between hypoxic and normoxic conditions. Enriched motifs often reflect underlying transcription factor activity, although they do not prove direct transcription factor binding. They can therefore be used as a proxy for regulatory mechanisms shaping the condition-specific response.
+
+
 1. Annotate peaks with GC bias  
 2. Get a list of motifs  
 3. Scan the ATAC seq peaks for motif matches  
@@ -13,7 +16,7 @@ To identify motifs that are differentially acessible in between males and female
 5. Perform differential analysis
 
 ## Setup
-```{r}
+```{r setup, include=FALSE}
 suppressPackageStartupMessages({
   library(motifmatchr)
   library(MotifDb)
@@ -29,12 +32,13 @@ suppressPackageStartupMessages({
 ```
 
 ## Loading the count matrix
+
 ```{r}
 se <- readRDS("data/peakCounts.rds")
 colData(se)
 ```
 
-I had an issue with running betterChromVAR without the following command. I remove peaks that have a zero value in every sample, because they contain no signal and can cause the background covariance calculation to fail.
+In order for the `betterChromVAR` function to work, we need to remove peaks that have a zero value in every sample, because they contain no signal and can cause the background covariance calculation to fail.
 
 ```{r remove-zero}
 non_zero <- Matrix::rowSums(SummarizedExperiment::assay(se)) > 0
@@ -42,6 +46,7 @@ se <- se[non_zero, ]
 ```
 
 ## Annotate regions
+
 ```{r annotation}
 se <- GenomeInfoDb::keepStandardChromosomes(se, pruning.mode = "coarse")
 seqlevelsStyle(se) <- "UCSC"
@@ -49,12 +54,14 @@ se <- addGCBias(se, genome=BSgenome.Mmusculus.UCSC.mm10)
 ```
 
 ## Motif matches
-I will use the motif list from MotifDb. 
+
+To perform the motif annotations, we need a motif list. I will use the motif list from the `MotifDb`package.
+
 ```{r motif-list}
 motifs <- MotifDb::query(MotifDb, "HOCOMOCOv13")
 ```
 
-Then we convert the motifs that they get accepted from motifmatchr.
+Then we convert the motifs that they get accepted from `motifmatchr`.
 
 ```{r, message=FALSE}
 motifs <- do.call(TFBSTools::PWMatrixList, convert_motifs(motifs, class="TFBSTools-PWMatrix"))
@@ -63,12 +70,13 @@ names(motifs) <- make.unique(sapply(motifs, \(x) gsub("\\..+","",x@name)))
 
 And now we will scan the ATAC peaks for motif matches.
 
-```{r motif-matches}
+```{r motif-matches, cache = TRUE}
 matches <- motifmatchr::matchMotifs(motifs, se, genome=BSgenome.Mmusculus.UCSC.mm10)
 matches
 ```
 
 ## Get motif deviations
+
 Now we will get the motif deviations, showing the realtive accessibility of each motif in each sample.
 
 ```{r motif-deviations}
@@ -76,15 +84,14 @@ dev <- betterChromVAR(se, matches)
 dev
 ```
 
-The output is also a SummarizedExperiment, this time with samples as columns and motifs as rows.
-The values represent the relative accessibility of each motif in each sample.
+The output is also a SummarizedExperiment, this time with samples as columns and motifs as rows. The values represent the relative accessibility of each motif in each sample.
 
 # Differenial Analysis
 
-We can use these motif deviations to perform differential analysis:
-
+We can use these motif deviations to perform differential analysis.
 
 ```{r}
+# use normoxia as reference level
 dev$condition <- factor(dev$condition, levels = c("normoxia", "hypoxia"))
 ```
 
@@ -96,66 +103,103 @@ res <- as.data.frame(topTable(fit, number = Inf))
 res$motif <- row.names(res)
 ```
 
-```{r volcano-plot-DA}
-res$diffexpressed <- "Not significant"
-res$diffexpressed[res$logFC > 0.6 & res$adj.P.Val < 0.05] <- "Upregulated"
-res$diffexpressed[res$logFC < -0.6 & res$adj.P.Val < 0.05] <- "Downregulated"
-
-ggplot(data = res, aes(x = logFC, y = -log10(adj.P.Val), col = diffexpressed)) +
-  geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
-  geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
-  geom_point(size = 2) + 
-  scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), 
-                     labels = c("Downregulated", "Not significant", "Upregulated")) +
-  theme_classic()
-```
+The volcano plot displays the differential motif accessibility between hypoxia and normoxia conditions, with annotations highlighting the top 10 most significantly enriched and repressed motifs.
+Additionally, HIF transcription factor family motifs are annotated, as these master regulators of the hypoxic response are expected to be enriched and more accessible in hypoxic conditions.
 
 ```{r}
-# Color classification column
-res$diffexpressed <- "Not significant"
-res$diffexpressed[res$logFC > 0.6 & res$adj.P.Val < 0.05] <- "Upregulated"
-res$diffexpressed[res$logFC < -0.6 & res$adj.P.Val < 0.05] <- "Downregulated"
+theme_update(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
+```
 
-# Get the 10 up- and downregulated motifs for labelling
+```{r volcano-plot-DA, fig.cap="Volcano plot showing differential motif accessibility between hypoxia and normoxia conditions. Annotated points show the top 10 most significantly enriched and depleted motifs, as well as motifs belonging to the HIF transcription factor family."}
+
+# color classification column
+res$diffexpressed <- "Not significant"
+res$diffexpressed[res$logFC > 0.6 & res$adj.P.Val < 0.05] <- "Enriched in hypoxia"
+res$diffexpressed[res$logFC < -0.6 & res$adj.P.Val < 0.05] <- "Repressed in hypoxia"
+
+# get the 10 up- and downregulated motifs for labelling
 res$my_labels <- NA
 
-top_up <- res[res$diffexpressed == "Upregulated", ]
-top_up <- top_up[order(top_up$adj.P.Val), ]
-top_up_motifs <- head(top_up$motif, 10)
+# top 10 for hypoxia
+top_hypoxia <- res[res$diffexpressed == "Enriched in hypoxia", ]
+top_hypoxia <- top_hypoxia[order(top_hypoxia$adj.P.Val), ]
+top_hypoxia_motifs <- head(top_hypoxia$motif, 10)
 
-top_down <- res[res$diffexpressed == "Downregulated", ]
-top_down <- top_down[order(top_down$adj.P.Val), ]
-top_down_motifs <- head(top_down$motif, 10)
+# top 10 for normoxia
+top_normoxia <- res[res$diffexpressed == "Repressed in hypoxia", ]
+top_normoxia <- top_normoxia[order(top_normoxia$adj.P.Val), ]
+top_normoxia_motifs <- head(top_normoxia$motif, 10)
 
-target_motifs <- c(top_up_motifs, top_down_motifs)
+# annotate HIF-TF motifs
+hif_motifs <- grep("HIF1A|EPAS1|HIF2A|HIF3A|ARNT2?|HIF", res$motif, value = TRUE, ignore.case = TRUE)
 
-# label column only for those target motifs
+target_motifs <- unique(c(top_hypoxia_motifs, top_normoxia_motifs, hif_motifs))
+
 res$my_labels[res$motif %in% target_motifs] <- as.character(res$motif[res$motif %in% target_motifs])
 
+# plot
 ggplot(data = res, aes(x = logFC, y = -log10(adj.P.Val), col = diffexpressed, label = my_labels)) +
   geom_vline(xintercept = c(-0.6, 0.6), col = "gray", linetype = 'dashed') +
   geom_hline(yintercept = -log10(0.05), col = "gray", linetype = 'dashed') + 
   geom_point(size = 2) + 
-  scale_color_manual(values = c("#00AFBB", "grey", "#bb0c00"), 
-                     labels = c("Downregulated", "Not significant", "Upregulated")) +
-  theme_classic() +
-
+  
+  scale_color_manual(values = c("Repressed in hypoxia" = "#00AFBB", 
+                                "Not significant" = "grey", 
+                                "Enriched in hypoxia" = "#bb0000")) + 
+  
+  labs(
+    title = "Differential Motif Accessibility Hypoxia vs. Normoxia",
+    color = "Condition Enrichment") +
+  #theme_classic() +
   geom_text_repel(max.overlaps = Inf, show.legend = FALSE)
 ```
 
-`normoxia` is the reference level so:  
-- logFC > 0 means enrichment in hypoxia
-- logFC < 0 means enrichment in normoxia
+To additionally look at the accessiblity profiles across the individual replicates, we can look at the motifs of interest with a heatmap.
 
+```{r heatmap-enriched, fig.cap="Heatmap showing accessibility profiles across individual replicates for the top enriched motifs in hypoxia."}
+col_rdbu <- hcl.colors(29, palette = "RdBu", rev = TRUE)
 
-```{r}
-col_rdbu <- hcl.colors(29, palette = "RdBu")
 col_conditions <- list(
-  condition = c("normoxia" = "#4682B4", "hypoxia" = "#b2182b")
+  condition = c("normoxia" = "lightgrey", "hypoxia" = "#252525")
 )
 
-sechm(dev, head(row.names(res)), 
+sechm(dev, head(row.names(res)),
+      column_title = "Accessibility Profiles: most enriched motifs in hypoxia",
+      column_title_gp = gpar(fontsize = 16, fontface = "bold"),
       gaps_at = "condition", 
       assayName = "z",
-      hmcols = cols_red_yellow_blue)
+      hmcols = col_rdbu,
+      anno_colors = col_conditions
+    )
 ```
+
+```{r heatmap-repressed, fig.cap="Heatmap showing accessibility profiles across individual replicates for the most repressed motifs in hypoxia."}
+res_repressed <- res[order(res$logFC), ]
+
+most_repressed_motifs <- head(row.names(res_repressed), 5)
+
+sechm(dev,most_repressed_motifs,
+      column_title = "Accessibility Profiles: Most repressed motifs in hypoxia",
+      column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+      gaps_at = "condition", 
+      assayName = "z",
+      hmcols = col_rdbu,
+      anno_colors = col_conditions
+    )
+```
+
+```{r heatmap-hif-motifs, fig.cap="Heatmap showing accessibility profiles across individual replicates for selected HIF family motifs."}
+hif_motifs <- grep("HIF1A|EPAS1|HIF2A|HIF3A|ARNT2?|ARNT|HIF", rownames(dev), value = TRUE, ignore.case = TRUE)
+
+sechm(dev, hif_motifs,
+      column_title = "Accessibility Profiles: HIF family motifs",
+      column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+      gaps_at = "condition",
+      assayName = "z",
+      hmcols = col_rdbu,
+      anno_colors = col_conditions
+      )
+```
+
+## Interpretation and Discussion
+HIF (hypoxia-inducible factor) transcription factors are the master regulators of the hypoxic response. Therefore we hypothesized to their binding motifs to be enriched and more accessible in the hypoxic condition. 
