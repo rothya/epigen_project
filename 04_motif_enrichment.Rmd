@@ -1,18 +1,16 @@
 ---
 title: "04 Motif Enrichment Analysis"
 author: "Yara"
-output: html_document
+output: bookdown::html_document2
 date: "2026-06-24"
 ---
 
-
 In the next step, motif enrichment analysis will be performed to identify DNA motifs that are differentially accessible between hypoxic and normoxic conditions. Enriched motifs often reflect underlying transcription factor activity, although they do not prove direct transcription factor binding. They can therefore be used as a proxy for regulatory mechanisms shaping the condition-specific response.
-
 
 1. Annotate peaks with GC bias  
 2. Get a list of motifs  
 3. Scan the ATAC seq peaks for motif matches  
-4. Calculate the motif accessability deviations  
+4. Calculate the motif accessibility deviations  
 5. Perform differential analysis
 
 ## Setup
@@ -28,6 +26,7 @@ suppressPackageStartupMessages({
   library(BSgenome.Mmusculus.UCSC.mm10)
   library(limma)
   library(betterChromVAR)
+  library(bookdown)
 })
 ```
 
@@ -106,10 +105,6 @@ res$motif <- row.names(res)
 The volcano plot displays the differential motif accessibility between hypoxia and normoxia conditions, with annotations highlighting the top 10 most significantly enriched and repressed motifs.
 Additionally, HIF transcription factor family motifs are annotated, as these master regulators of the hypoxic response are expected to be enriched and more accessible in hypoxic conditions.
 
-```{r}
-theme_update(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
-```
-
 ```{r volcano-plot-DA, fig.cap="Volcano plot showing differential motif accessibility between hypoxia and normoxia conditions. Annotated points show the top 10 most significantly enriched and depleted motifs, as well as motifs belonging to the HIF transcription factor family."}
 
 # color classification column
@@ -154,17 +149,15 @@ ggplot(data = res, aes(x = logFC, y = -log10(adj.P.Val), col = diffexpressed, la
   geom_text_repel(max.overlaps = Inf, show.legend = FALSE)
 ```
 
-To additionally look at the accessiblity profiles across the individual replicates, we can look at the motifs of interest with a heatmap.
+To additionally look at the accessibility profiles across the individual replicates, we can look at the motifs of interest with a heatmap.
 
-```{r heatmap-enriched, fig.cap="Heatmap showing accessibility profiles across individual replicates for the top enriched motifs in hypoxia."}
-col_rdbu <- hcl.colors(29, palette = "RdBu", rev = TRUE)
+```{r heatmap-repressed, fig.cap="Heatmap showing accessibility profiles across individual replicates for the most repressed motifs in hypoxia."}
 
-col_conditions <- list(
-  condition = c("normoxia" = "lightgrey", "hypoxia" = "#252525")
-)
+res_repressed <- res[order(res$logFC, decreasing = FALSE), ]
+most_repressed_motifs <- head(row.names(res_repressed), 5)
 
-sechm(dev, head(row.names(res)),
-      column_title = "Accessibility Profiles: most enriched motifs in hypoxia",
+sechm(dev, most_repressed_motifs,
+      column_title = "Accessibility Profiles: Most repressed motifs in hypoxia",
       column_title_gp = gpar(fontsize = 16, fontface = "bold"),
       gaps_at = "condition", 
       assayName = "z",
@@ -173,13 +166,19 @@ sechm(dev, head(row.names(res)),
     )
 ```
 
-```{r heatmap-repressed, fig.cap="Heatmap showing accessibility profiles across individual replicates for the most repressed motifs in hypoxia."}
-res_repressed <- res[order(res$logFC), ]
+```{r heatmap-enriched, fig.cap="Heatmap showing accessibility profiles across individual replicates for the top enriched motifs in hypoxia."}
+col_rdbu <- hcl.colors(29, palette = "RdBu", rev = TRUE)
 
-most_repressed_motifs <- head(row.names(res_repressed), 5)
+col_conditions <- list(
+  condition = c("normoxia" = "lightgrey", "hypoxia" = "#252525")
+)
 
-sechm(dev,most_repressed_motifs,
-      column_title = "Accessibility Profiles: Most repressed motifs in hypoxia",
+# Sort res by logFC in descending order for enriched motifs
+res_enriched <- res[order(res$logFC, decreasing = TRUE), ]
+most_enriched_motifs <- head(row.names(res_enriched), 5)
+
+sechm(dev, most_enriched_motifs,
+      column_title = "Accessibility Profiles: most enriched motifs in hypoxia",
       column_title_gp = gpar(fontsize = 16, fontface = "bold"),
       gaps_at = "condition", 
       assayName = "z",
@@ -201,5 +200,31 @@ sechm(dev, hif_motifs,
       )
 ```
 
-## Interpretation and Discussion
-HIF (hypoxia-inducible factor) transcription factors are the master regulators of the hypoxic response. Therefore we hypothesized to their binding motifs to be enriched and more accessible in the hypoxic condition. 
+## Results
+Motif enrichment analysis revealed distinct motifs that were differentially accessible between myeloid cells cultured under normoxic and hypoxic conditions.
+
+The motifs most strongly repressed upon hypoxia exposure belong to the ETS transcription factor family, including ELF5, ELF4, ELF2.1, and ETV4 (see Figure \@ref(fig:volcano-plot-DA)).
+
+Conversely, motifs belonging to the AP-1 family, including ATF3.2, JUND, JUNB, FOSL1, JUN, showed the most significant enrichment upon hypoxia exposure (see Figure \@ref(fig:volcano-plot-DA)).  
+
+To assess the consistency of these shifts across individual biological replicates, we examined the accessibility profiles using targeted heatmaps.
+The accessibility profiles of the ETS family motifs were highly cohesive within the respective treatment groups (see Figure \@ref(fig:heatmap-repressed)). In contrast, the AP-1 motifs showed differences among the hypoxic replicates, indicating the presence of a batch effect (see Figure \@ref(fig:heatmap-enriched)).  
+
+Given that hypoxia-inducible factors (HIFs) serve as the master transcriptional regulators of the hypoxic response, we specifically examined the behavior of HIF-family motifs. We hypothesized that HIF binding motifs would be enriched and more accessible under hypoxic condition.
+Interestingly, none of the core HIF-family motifs, including HIF-1α, HIF-2α, HIF-3α, and ARNT, showed a statistically significant difference in motif accessibility between the conditions (see Figure \@ref(fig:volcano-plot-DA)).
+
+
+# Discussion
+Our analysis identified ETS transcription factor motifs to be strongly repressed upon hypoxic exposure in glioma associated myeloid cells. 
+The ETS transcription factor family comprises functional master regulators of myeloid cell identity and differentiation CITE(Sharrok). The observed downregulation of ETS family motif accessibility under hypoxic conditions indicates that the glioma-associated myeloid cells transition away from a homeostatic state, potentially altering their immunosuppressive phenotype. 
+
+In their motif analysis workflow, the authors filtered their results to focus on active motifs where the expression of the corresponding transcription factor gene was sufficiently high CITE(Dzwigonska). Our finding that ETS family motifs are strongly depleted under hypoxic conditions is nevertheless highly consistent with the paper's central argument that hypoxia acts as a potent suppressor of homeostatic myeloid cell identity.
+
+Additionally, we identified AP-1 family memebrs (such as JUN, FOS and ATF subunits) to be enriched in the hypoxic condition. 
+The AP-1 transcription factor family consists of proteins belonging to the JUN, FOS, and ATF subfamilies, which form dimeric complexes CITE(Song).
+AP-1 is involved in a wide range of biological processes, including proliferation and differentiation, and has been shown to integrate cellular stress signals CITE(Song).
+The observed enrichment of AP-1 motifs under hypoxia aligns well with established results in the literature. Hypoxia has been shown to act as a environmental stressor that strongly induces AP-1 in the tumor microenvironment. In myeloid cells specifically, recent studies have directly linked AP-1 activation to the promotion of tumor-supportive macrophage functions CITE(ku&Cheng).  
+This finding also aligns with the primary publication, in which they found AP-1 motifs to be enriched in myeloid cells upon hypoxic exposure CITE(Dzwigonska).  
+
+Hypoxia-inducible factors (HIFs) serve as the master transcriptional regulators of the hypoxic response. Interestingly, our analysis did not show a statistical enrichment of HIF-family motifs upon hypoxic exposure. 
+
