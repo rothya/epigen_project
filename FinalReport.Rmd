@@ -50,13 +50,13 @@ First we will create a global plotting style.
 ```
 
 
-## 01 - Downloading
+## Downloading
 
-## 02 - Differential Gene Accessibility
+## Differential Gene Accessibility
 
-## 03 - Functional Enrichment Analysis
+## Functional Enrichment Analysis
 
-## 04 - Motif Enrichment Analysis
+## Motif Enrichment Analysis
 
 # Conclusion
 

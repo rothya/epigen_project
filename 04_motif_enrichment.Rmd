@@ -47,7 +47,7 @@ knitr::opts_chunk$set(
 ```{r}
 theme_set(
   theme_classic() +
-  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5)) #hjust = 0 to left align
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) #hjust = 0 to left align
   )
 ```
 
@@ -188,7 +188,7 @@ most_repressed_motifs <- head(row.names(res_repressed), 5)
 
 sechm(dev, most_repressed_motifs,
       column_title = "Accessibility Profiles: Most repressed motifs in hypoxia",
-      column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+      column_title_gp = gpar(fontsize = 14, fontface = "bold"),
       gaps_at = "condition", 
       assayName = "z",
       hmcols = col_rdbu,
@@ -209,7 +209,7 @@ most_enriched_motifs <- head(row.names(res_enriched), 5)
 
 sechm(dev, most_enriched_motifs,
       column_title = "Accessibility Profiles: most enriched motifs in hypoxia",
-      column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+      column_title_gp = gpar(fontsize = 14, fontface = "bold"),
       gaps_at = "condition", 
       assayName = "z",
       hmcols = col_rdbu,
@@ -222,7 +222,7 @@ hif_motifs <- grep("HIF1A|EPAS1|HIF2A|HIF3A|ARNT2?|ARNT|HIF", rownames(dev), val
 
 sechm(dev, hif_motifs,
       column_title = "Accessibility Profiles: HIF family motifs",
-      column_title_gp = gpar(fontsize = 12, fontface = "bold"),
+      column_title_gp = gpar(fontsize = 14, fontface = "bold"),
       gaps_at = "condition",
       assayName = "z",
       hmcols = col_rdbu,
@@ -230,7 +230,7 @@ sechm(dev, hif_motifs,
       )
 ```
 
-## Results
+## Motif Enrichment Analysis - Results
 Motif enrichment analysis revealed distinct motifs that were differentially accessible between myeloid cells cultured under normoxic and hypoxic conditions.
 
 The motifs most strongly repressed upon hypoxia exposure belong to the ETS transcription factor family, including ELF5, ELF4, ELF2.1, and ETV4 (see Figure \@ref(fig:volcano-plot-DA)).
@@ -246,7 +246,7 @@ Most HIF-family motifs show a consistent profile across the hypoxic replicates. 
 A notable exception is ARNT2. It shows completely opposite trends between the two hypoxic replicates, with a decrease in accessibility in one sample and a sharp increase in the other, suggesting a potential batch effect (see Figure \@ref(fig:heatmap-hif-motifs)).
 
 
-## Discussion
+## Motif Enrichment Analysis - Discussion
 Our analysis identified ETS transcription factor motifs to be strongly repressed upon hypoxic exposure in glioma associated myeloid cells. 
 The ETS transcription factor family comprises functional master regulators of myeloid cell identity and differentiation [@sharrocks_ets-domain_2001]. The observed downregulation of ETS family motif accessibility under hypoxic conditions indicates that the glioma-associated myeloid cells transition away from a homeostatic state, potentially altering their immunosuppressive phenotype. 
 
