@@ -1,0 +1,63 @@
+---
+title: "The effect of hypoxic stress on glioma-associated myeloid cells"
+author: "Olga Ledeneva, Yara Roth, Julia Shea"
+date: "2026-07-03"
+output: bookdown::html_document2
+bibliography: references.bib
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl
+link-citations: true
+---
+
+# Introduction
+Glioblastoma is one of the most common and aggressive malignancies, accounting for 50% of all malignant central nervous system tumors [@grochans_epidemiology_2022].
+Despite the use of multimodal treatmets including surgery, radiotherapy and chemotherapy, the average survival rate of patients is only about 15 months [@grochans_epidemiology_2022].  
+Ongoing challenges to glioblastoma treatment include its incomplete resection, high degree of heterogeneity and most importantly the immunosuppressive tumor microenvironment (TME) [@wu_glioblastoma_2021].
+Tumor-associated myeloid cells, including macrophages and microglia cells are the most abundant population of immune, accounting up to 50% of the whole glioblastoma tumor mass [@khan_macrophages_2023]. Emerging evidence shows that these cells are critical components that promote tumor progression and induce the immunosuppressive TME [@khan_macrophages_2023]. Better understanding this the myloid cell population and it's role in the tumor microenvironment could help to resolve the complexity of the tumor and lead to novel therapeutic targets.  
+Because glioblastomas contain highly proliferative cells, they display severely hypoxic regions [@bayona_tumor_2026]. Hypoxia has already been shown to drive glioma-associated myeloid cells toward an immunosuppressive phenotype and dysregulate their baseline identity [@sattiraju_hypoxic_2023].  
+Therefore, the primary paper aimed to unvocer how hypoxia remodels chromatin accessiblity and the underlying epigenetic changes that control this pro-tumorigenic reprogramming of glioma-associated myeloid cells [@dzwigonska_hypoxic_2025].  
+
+We worked with data from microglia-glioma co-cultures that were exposed to a hypoxic environment and compared them to ones cultured under normoxia.
+To capture global epigenetic changes, the authors performed two high-throughput sequencing methods. First, they used ATAC-seq to profile changes in chromatin accessibility, and secondly, they performed CUT&RUN sequencing to map the H3K27ac histone modification, which marks active promoter and enhancer regions.  
+
+Our computational analysis was structured into four major components to comprehensively evaluate the epigenomic effects of hypoxia:  
+
+1. **Differential accessibility analysis** was performed to identify regions of chromatin that underwent significant structural changes upon hypoxic exposure.
+
+2. **Functional enrichment analysis** was performed on these differentially accessible regions to uncover the overrepresented biological processes affected by hypoxia.
+
+3. **Motif enrichment analysis** was performed to determine which transcription factor binding sites might be affected by hypoxia
+
+4. **Integration of CUT&RUN data** was used to evaluate how closely active H3K27ac histone modification signals aligned with the observed changes in chromatin accessibility.
+
+# Analysis
+## Setup
+First we will create a global plotting style.
+
+```{r setup-plot, include=FALSE}
+# knitr::opts_chunk$set(
+#   fig.width = 8,
+#   fig.height = 5,
+#   fig.align = "center",
+#   out.width = "90%"
+# )
+```
+
+```{r}
+# theme_set(
+#   theme_classic() +
+#   theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5)) #hjust = 0 to left align
+#   )
+```
+
+
+## 01 - Downloading
+
+## 02 - Differential Gene Accessibility
+
+## 03 - Functional Enrichment Analysis
+
+## 04 - Motif Enrichment Analysis
+
+# Conclusion
+
+# References
