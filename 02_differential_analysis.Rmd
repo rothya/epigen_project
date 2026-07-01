@@ -126,12 +126,21 @@ The raw read counts cannot be compared directly between samples, since they refl
 
 
 ```{r}
+# Re-attach metadata explicitly in case colData was lost on reload
+se <- readRDS("data/peakCounts.rds")
 
+colData(se)$condition <- c("hypoxia", "hypoxia", "normoxia", "normoxia")
+colData(se)$rep       <- c(1, 2, 1, 2)
+
+dds <- edgeR::DGEList(
+  counts = assay(se),
+  group  = factor(colData(se)$condition, levels = c("normoxia", "hypoxia"))
+)
 # Build an edgeR DGEList from the raw peak counts, grouped by condition
 
 dds <- edgeR::DGEList(
   counts = assay(se),
-  group  = se$condition
+  group  = factor(se$condition, levels = c("normoxia", "hypoxia"))
 )
 
 # TMM normalization accounts for differences in sequencing depth and library composition between samples

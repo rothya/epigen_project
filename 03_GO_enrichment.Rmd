@@ -4,17 +4,17 @@ author: "Julia"
 date: "2026-06-23"
 output: html_document
 ---
-
 # Introduction
 
-Using the differentially accessible regions identified in `02_differential_accessibility.Rmd`,
-we perform GO Biological Process enrichment to answer: **which biological processes
-are more or less active in hypoxic versus normoxic glioma-associated microglia?**
+Following the identification of differentially accessible chromatin regions in the previous analysis (`02_differential_accessibility.Rmd`), we investigated the biological significance of these accessibility changes using Gene Ontology (GO) Biological Process enrichment analysis. More specifically, we addressed the research question:
 
-More open chromatin in hypoxia → increased regulatory activity → upregulated process.  
-More open chromatin in normoxia → decreased regulatory activity in hypoxia → downregulated process.
+**Which biological processes are associated with chromatin accessibility changes induced by hypoxia in glioma-associated microglia?**
 
-**Requires:** `01_downloading_data.Rmd` and `02_differential_accessibility.Rmd` run first.
+Differentially accessible regions were separated into peaks that became either **more accessible under hypoxic conditions** or peaks that were **less accessible under hypoxic conditions**. Increased chromatin accessibility is generally associated with increased regulatory potential and may indicate activation of regulatory pathways, whereas reduced accessibility usually shows repression of these processes. Using GREAT, we identified biological processes significantly enriched among genes associated with each set of differentially accessible regions.
+
+This analysis reproduces the functional enrichment component of the original study by linking hypoxia-induced chromatin remodeling to the biological pathways that may contribute to microglial reprogramming within the glioblastoma microenvironment.
+
+**Prerequisites:** This analysis requires the successful completion of `01_downloading_data.Rmd` and `02_differential_accessibility.Rmd`, which generate the differentially accessible peak sets used as input for the enrichment analysis.
 
 ---
 
@@ -46,19 +46,15 @@ The `se` object from code 02 carries all tested peak coordinates in `rowRanges(s
 This is our background (all accessible chromatin tested) for GREAT.
 
 ```{r peak-coords}
-# All tested peaks = proper background for GREAT
-bg_regions <- rowRanges(se)
-cat("Background (all tested peaks):", length(bg_regions), "\n")
 
-# DA results are ordered by FDR; row order matches rowRanges(se) after edgeR filter.
-# Re-attach coordinates to the results table.
-# edgeR keeps the same row order as the input se after filterByExpr,
-# so we match by name if available, otherwise by position.
-res$coord_idx <- match(rownames(res), names(bg_regions))
+# res rownames are peak indices from the filtered se — match them back
+bg_regions <- rowRanges(se)[as.integer(rownames(res))]
 
-# Peaks more open in hypoxia (logFC > 1, FDR < 0.05)
+cat("Background peaks:", length(bg_regions), "\n")
+cat("Result rows:",      nrow(res),           "\n")
+stopifnot(nrow(res) == length(bg_regions))  # should now pass
+
 hyp_idx  <- which(!is.na(res$FDR) & res$FDR < 0.05 & res$logFC >  1)
-# Peaks more open in normoxia (logFC < -1, FDR < 0.05)
 norm_idx <- which(!is.na(res$FDR) & res$FDR < 0.05 & res$logFC < -1)
 
 hyp_regions  <- bg_regions[hyp_idx]
@@ -76,11 +72,21 @@ cat("More open in normoxia:", length(norm_regions), "peaks\n")
 res_hyp <- great(
   hyp_regions,
   gene_sets  = "GO:BP",
-  tss_source = "mm10",      # BV2 = mouse
-  background = bg_regions,  # all tested peaks
+  tss_source = "mm10",
+  background = bg_regions,
   cores      = 2
 )
-bp_hyp_filt <- getEnrichmentTables(res_hyp)
+bp_hyp <- getEnrichmentTables(res_hyp)
+
+# Filter out generic terms — keep only specific ones
+bp_hyp_filt <- bp_hyp[
+  bp_hyp$p_adjust < 0.05 &
+  bp_hyp$observed_region_hits >= 5 &
+  bp_hyp$fold_enrichment >= 2 &        # <-- must be at least 2x enriched
+  bp_hyp$gene_set_size <= 500,         # <-- removes huge generic GO terms
+]
+
+bp_hyp_filt <- bp_hyp_filt[order(bp_hyp_filt$p_adjust), ]
 cat("BP terms (increased in hypoxia):", nrow(bp_hyp_filt), "\n")
 ```
 
@@ -94,14 +100,22 @@ res_norm <- great(
   background = bg_regions,
   cores      = 2
 )
-bp_norm_filt <- getEnrichmentTables(res_norm)
+bp_norm <- getEnrichmentTables(res_norm)
+# Filter out generic terms — keep only specific ones
+bp_norm_filt <- bp_norm[
+  bp_norm$p_adjust < 0.05 &
+  bp_norm$observed_region_hits >= 5 &
+  bp_norm$fold_enrichment >= 2 &        # <-- must be at least 2x enriched
+  bp_norm$gene_set_size <= 500,         # <-- removes huge generic GO terms
+]
+
+bp_norm_filt <- bp_norm_filt[order(bp_norm_filt$p_adjust), ]
 cat("BP terms (decreased in hypoxia):", nrow(bp_norm_filt), "\n")
 ```
 
-# Step 5 — Plot (identical style to reference)
+# Step 5 — Plot 
 
-```{r}
-# Increased in hypoxia
+```{r, fig.cap= Processed increased in hypoxia}
 ggplot(head(bp_hyp_filt, 15),
        aes(fold_enrichment,
            reorder(description, p_adjust),
@@ -110,8 +124,10 @@ ggplot(head(bp_hyp_filt, 15),
   geom_point() +
   scale_color_viridis_c() +
   labs(title = "GO BP — increased in hypoxia", x = "Fold enrichment", y = NULL)
+```
 
-# Decreased in hypoxia
+
+```{r, fig.cap= Processes decreased in hypoxia}
 ggplot(head(bp_norm_filt, 15),
        aes(fold_enrichment,
            reorder(description, p_adjust),
@@ -133,3 +149,8 @@ print(head(bp_norm_filt[, c("description", "observed_region_hits",
                               "fold_enrichment", "p_adjust")], 20))
 ```
 
+#Results:
+Differential chromatin accessibility analysis of BV2 microglia co-cultured with GL261 glioma cells under hypoxia versus normoxia revealed two distinct epigenomic programs. Regions gaining accessibility under hypoxia were enriched for response to decreased oxygen levels, response to oxygen levels, PI3K/protein kinase B signaling, positive regulation of MAPK cascade, T cell differentiation, regulation of hematopoiesis, cell-substrate adhesion, and response to wounding, all with fold enrichments above 2.2 and adjusted p-values below e-28. Regions losing accessibility under hypoxia reflecting processes actively maintained under normoxia showed enrichment for extracellular matrix organization, extracellular structure organization, axonogenesis, glial cell differentiation, skeletal system morphogenesis, and bone development. Together, these results indicate that hypoxia drives BV2 microglia toward an oxygen-sensing, pro-inflammatory signaling state while simultaneously suppressing chromatin accessibility at loci associated with homeostatic glial identity and structural tissue programs.
+
+#Discussion:
+Our chromatin accessibility findings partially reproduce and extend those reported by Dzwigonska et al. The paper's RNA-seq GO enrichment identified response to hypoxia, response to oxygen levels, chemotaxis, cell migration, angiogenesis, and blood vessel morphogenesis as the top upregulated processes in hypoxic glioma co-cultured BV2 cells, while ribosome biogenesis, RNA processing, and DNA replication were downregulated. Our ATAC-seq-based enrichment recovers response to oxygen levels and response to decreased oxygen levels in the hypoxia-gained peaks, directly corroborating the paper's transcriptomic findings at the epigenomic level and suggesting these programs are regulated upstream through chromatin remodeling rather than solely through immediate HIF transcription factor activity. We additionally identify PI3K/PKB and MAPK cascade signaling and T cell differentiation and hematopoiesis regulation as hypoxia-gained chromatin programs, which the paper does not highlight in its ATAC-seq GO analysis. On the normoxia side, our finding that glial cell differentiation and extracellular matrix organization accessibility is lost under hypoxia aligns closely with the paper's central claim that hypoxia suppresses homeostatic microglial identity genes such as P2ry12 and Tmem119 through chromatin remodeling, and with their observation that hypoxia reduces accessibility at the P2ry12 promoter containing IRF8 and SPI1 binding sites. 
